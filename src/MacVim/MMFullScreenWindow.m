@@ -55,7 +55,7 @@ enum {
 
 @implementation MMFullScreenWindow
 
-- (MMFullScreenWindow *)initWithWindow:(NSWindow *)t view:(MMVimView *)v 
+- (MMFullScreenWindow *)initWithWindow:(NSWindow *)t view:(MMVimView *)v
                                backgroundColor:(NSColor *)back
 {
     NSScreen* screen = [t screen];
@@ -74,7 +74,7 @@ enum {
                                // we want the content rect to be relative to
                                // the main screen (ie, pass nil for screen).
                                screen:nil];
-      
+
     if (self == nil)
         return nil;
 
@@ -104,7 +104,7 @@ enum {
 
     // NOTE: Vim needs to process mouse moved events, so enable them here.
     [self setAcceptsMouseMovedEvents:YES];
-  
+
     fadeTime = [[NSUserDefaults standardUserDefaults] doubleForKey:MMFullScreenFadeTimeKey];
 
     // Each fade goes in and then out, so the fade hardware must be reserved accordingly and the
@@ -112,7 +112,7 @@ enum {
     // prevent visual artifacts caused by defaulting on the fade hardware lease.
     fadeTime = MIN(fadeTime, 0.45 * kCGMaxDisplayReservationInterval);
     fadeReservationTime = 2.0 * fadeTime + 0.1;
-    
+
     return self;
 }
 
@@ -133,9 +133,12 @@ enum {
     options = opt;
 }
 
+float enteringFS = 0;
 - (void)enterFullScreen
 {
     ASLogDebug(@"Enter full-screen now");
+
+    enteringFS = CFAbsoluteTimeGetCurrent();
 
     // Hide Dock and menu bar now to avoid the hide animation from playing
     // after the fade to black (see also windowDidBecomeMain:).
@@ -158,7 +161,7 @@ enum {
     // fool delegate
     id delegate = [target delegate];
     [target setDelegate:nil];
-    
+
     // make target's window controller believe that it's now controlling us
     [[target windowController] setWindow:self];
 
@@ -174,7 +177,7 @@ enum {
     [view removeFromSuperviewWithoutNeedingDisplay];
     [[self contentView] addSubview:view];
     [self setInitialFirstResponder:[view textView]];
-    
+
     // NOTE: Calling setTitle:nil causes an exception to be raised (and it is
     // possible that 'target' has no title when we get here).
     if ([target title]) {
@@ -188,7 +191,7 @@ enum {
     [self setOpaque:[target isOpaque]];
 
     // don't set this sooner, so we don't get an additional
-    // focus gained message  
+    // focus gained message
     [self setDelegate:delegate];
 
     // Store view dimension used before entering full-screen, then resize the
@@ -214,12 +217,17 @@ enum {
     // Restore collection behavior (see hack above).
     [self setCollectionBehavior:wcb];
 
+    [[view textView] blankUntilRedraw];
+
     // fade back in
     if (didBlend) {
         CGDisplayFade(token, fadeTime, kCGDisplayBlendSolidColor,
             kCGDisplayBlendNormal, .0, .0, .0, false);
         CGReleaseDisplayFadeReservation(token);
     }
+
+    if ( enteringFS )
+        printf("leave enterFullScreen @%f\n", CFAbsoluteTimeGetCurrent() - enteringFS);
 
     state = InFullScreen;
 }
@@ -272,7 +280,7 @@ enum {
     // fix delegate
     id delegate = [self delegate];
     [self setDelegate:nil];
-    
+
     // move text view back to original window, hide fullScreen window,
     // show original window
     // do this _after_ resetting delegate and window controller, so the
@@ -322,13 +330,13 @@ enum {
     // sooner
     [target setDelegate:delegate];
 
-    // fade back in  
+    // fade back in
     if (didBlend) {
         CGDisplayFade(token, fadeTime, kCGDisplayBlendSolidColor,
             kCGDisplayBlendNormal, .0, .0, .0, false);
         CGReleaseDisplayFadeReservation(token);
     }
-    
+
     [self autorelease]; // Balance the above retain
 
     state = LeftFullScreen;
@@ -493,7 +501,7 @@ enum {
     int maxRows, maxColumns;
     NSSize size = [[self screen] frame].size;
     size.height -= [self viewOffset];
-    
+
     [view constrainRows:&maxRows columns:&maxColumns toSize:size];
 
     // Compute current fu size
