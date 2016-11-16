@@ -581,10 +581,21 @@ defaultAdvanceForFont(NSFont *font)
     return NO;
 }
 
+extern float enteringFS;
+
+BOOL shouldBlankUntilRedraw = NO;
+- (void)blankUntilRedraw
+{
+    shouldBlankUntilRedraw = YES;
+}
+
 - (void)drawRect:(NSRect)rect
 {
     NSGraphicsContext *context = [NSGraphicsContext currentContext];
     [context setShouldAntialias:antialias];
+
+    if ( enteringFS )
+       printf("enter drawRect @%f\n", CFAbsoluteTimeGetCurrent() - enteringFS);
 
     id data;
     NSEnumerator *e = [drawData objectEnumerator];
@@ -593,22 +604,34 @@ defaultAdvanceForFont(NSFont *font)
 
     [drawData removeAllObjects];
 
-    CGLayerRef l = [self getLayer];
+    if (shouldBlankUntilRedraw) {
+        printf("blanking until redraw @%f\n", CFAbsoluteTimeGetCurrent() - enteringFS);
+        CGContextRef cgContext = [context graphicsPort];
+        CGContextSaveGState(cgContext);
+        CGContextSetRGBFillColor(cgContext, 0.0, 0.0, 0.0, 1.0);
+        CGContextFillRect(cgContext, [self frame]);
+        CGContextRestoreGState(cgContext);
+    } else {
+        CGLayerRef l = [self getLayer];
 
-    /* during a live resize, we will have around a stale layer until the
-     * refresh messages travel back from the vim process.  we push the old
-     * layer in at an offset to get rid of jitter due to lines changing position.  */
+        /* during a live resize, we will have around a stale layer until the
+         * refresh messages travel back from the vim process.  we push the old
+         * layer in at an offset to get rid of jitter due to lines changing position.  */
 
-    CGSize layerSize = CGLayerGetSize(l);
-    CGSize frameSize = [self frame].size;
-    NSRect drawRect = NSMakeRect(0, frameSize.height - layerSize.height, layerSize.width, layerSize.height);
+        CGSize layerSize = CGLayerGetSize(l);
+        CGSize frameSize = [self frame].size;
+        NSRect drawRect = NSMakeRect(0, frameSize.height - layerSize.height, layerSize.width, layerSize.height);
 
-    CGContextDrawLayerInRect([context graphicsPort], drawRect, l);
-
+        CGContextDrawLayerInRect([context graphicsPort], drawRect, l);
+        if ( enteringFS )
+            printf("exiting drawRect @%f (%f, %f)\n", CFAbsoluteTimeGetCurrent() - enteringFS, layerSize.width, layerSize.height);
+    }
 }
 
 - (void)performBatchDrawWithData:(NSData *)data
 {
+    if ( enteringFS )
+       printf("enter performBatchDraw @%f\n", CFAbsoluteTimeGetCurrent() - enteringFS);
     [drawData addObject:data];
     [self setNeedsDisplay:YES];
 
@@ -616,6 +639,9 @@ defaultAdvanceForFont(NSFont *font)
     // and columns are changed (due to ipc delays). Force a redraw here.
     if ([self inLiveResize])
         [self display];
+
+    if ( enteringFS )
+       printf("exit performBatchDraw @%f\n", CFAbsoluteTimeGetCurrent() - enteringFS);
 }
 
 - (void)releaseLayer
@@ -903,6 +929,7 @@ defaultAdvanceForFont(NSFont *font)
 #if MM_DEBUG_DRAWING
             ASLogNotice(@"   Clear all");
 #endif
+            shouldBlankUntilRedraw = NO;
             [self clearAll];
         } else if (ClearBlockDrawType == type) {
             unsigned color = *((unsigned*)bytes);  bytes += sizeof(unsigned);
