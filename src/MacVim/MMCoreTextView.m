@@ -298,7 +298,17 @@ defaultAdvanceForFont(NSFont *font)
     CFRelease(desc);
 
     [font release];
+    if ( fontBold ) 
+        [fontBold release];
+    if ( fontItalic ) 
+        [fontItalic release];
+    if ( fontBoldItalic ) 
+        [fontBoldItalic release];
+
     font = (NSFont*)fontRef;
+    fontBold = CTFontCreateCopyWithSymbolicTraits(font, 0.0, NULL, kCTFontBoldTrait, kCTFontBoldTrait);
+    fontItalic = CTFontCreateCopyWithSymbolicTraits(font, 0.0, NULL, kCTFontItalicTrait, kCTFontItalicTrait);
+    fontBoldItalic = CTFontCreateCopyWithSymbolicTraits(font, 0.0, NULL, kCTFontBoldTrait | kCTFontItalicTrait, kCTFontBoldTrait | kCTFontItalicTrait);
 
     float cellWidthMultiplier = [[NSUserDefaults standardUserDefaults]
             floatForKey:MMCellWidthMultiplierKey];
@@ -337,6 +347,7 @@ defaultAdvanceForFont(NSFont *font)
         NSFontDescriptor *desc =
             [emojiDesc fontDescriptorByAddingAttributes:attrs];
         fontWide = [[NSFont fontWithDescriptor:desc size:size] retain];
+
     }
 }
 
@@ -1427,22 +1438,14 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
         xrel += w;
     }
 
+
+
     CTFontRef fontRef = (CTFontRef)(flags & DRAW_WIDE ? [fontWide retain]
                                                       : [font retain]);
-    unsigned traits = 0;
     if (flags & DRAW_ITALIC)
-        traits |= kCTFontItalicTrait;
+        fontRef = [fontItalic retain];
     if (flags & DRAW_BOLD)
-        traits |= kCTFontBoldTrait;
-
-    if (traits) {
-        CTFontRef fr = CTFontCreateCopyWithSymbolicTraits(fontRef, 0.0, NULL,
-                traits, traits);
-        if (fr) {
-            CFRelease(fontRef);
-            fontRef = fr;
-        }
-    }
+        fontRef = [fontBold retain];
 
     CGContextSetTextPosition(context, x, y+fontDescent);
     recurseDraw(chars, glyphs, positions, length, context, fontRef, fontCache, ligatures);

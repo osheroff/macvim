@@ -20,7 +20,13 @@
     NSColor                     *defaultForegroundColor;
     NSSize                      cellSize;
     NSFont                      *font;
+    CTFontRef                   fontBold;
+    CTFontRef                   fontItalic;
+    CTFontRef                   fontBoldItalic;
     NSFont                      *fontWide;
+    CTFontRef                   fontWideBold;
+    CTFontRef                   fontWideItalic;
+    CTFontRef                   fontWideBoldItalic;
     float                       linespace;
 
     // From NSTextView
