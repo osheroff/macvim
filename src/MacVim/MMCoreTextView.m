@@ -581,6 +581,10 @@ defaultAdvanceForFont(NSFont *font)
     return NO;
 }
 
+extern double keyDownStart;
+double totalLatency = 0;
+int latencyCount = 0;
+
 - (void)drawRect:(NSRect)rect
 {
     NSGraphicsContext *context = [NSGraphicsContext currentContext];
@@ -612,6 +616,15 @@ defaultAdvanceForFont(NSFont *font)
         CGContextSetBlendMode(cgContext, kCGBlendModeCopy);
         CGContextDrawLayerInRect(cgContext, drawRect, l);
         CGContextRestoreGState(cgContext);
+    }
+
+    if (keyDownStart > 0) {
+        double lat = CFAbsoluteTimeGetCurrent() - keyDownStart;
+        printf("latency: %.4f\n", lat);
+        totalLatency += lat;
+        latencyCount++;
+        printf("average latency: %.4f\n", totalLatency / latencyCount);
+        keyDownStart = 0;
     }
 }
 

@@ -124,10 +124,14 @@ KeyboardInputSourcesEqual(TISInputSourceRef a, TISInputSourceRef b)
     return insertionPointColor;
 }
 
+double keyDownStart = 0;
+
 - (void)keyDown:(NSEvent *)event
 {
     ASLogDebug(@"%@", event);
 
+    keyDownStart = CFAbsoluteTimeGetCurrent();
+    printf("keydownStart @ %f\n", keyDownStart);
     // NOTE: Keyboard handling is complicated by the fact that we must call
     // interpretKeyEvents: otherwise key equivalents set up by input methods do
     // not work (e.g. Ctrl-Shift-; would not work under Kotoeri).
